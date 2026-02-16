@@ -1,4 +1,4 @@
-use clap::{ArgGroup, Parser};
+use clap::Parser;
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType};
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::io::{stdout, Write};
 use std::thread::sleep;
 use std::time::Duration;
+
 /// Hex-Farbe in (r,g,b) konvertieren.
 fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
     let hex = hex.trim_start_matches('#');
@@ -16,6 +17,7 @@ fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
     let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
     (r, g, b)
 }
+
 /// Verfügbare Farbsets (Name -> Vec<RGB>)
 fn colorsets() -> HashMap<String, Vec<(u8, u8, u8)>> {
     let mut map = HashMap::new();
@@ -49,28 +51,30 @@ fn colorsets() -> HashMap<String, Vec<(u8, u8, u8)>> {
     );
     map
 }
+
 /// Kommandozeilenargumente
 #[derive(Parser)]
 #[clap(author, version, about = "Matrix Digital Rain mit eingeblendetem Text")]
-#[clap(group(
-    ArgGroup::new("colorset")
-        .args(&["colorset", "list"]),
-))]
 struct Args {
     /// Name des Farbsets (Determination, City, 2077, Thermography)
-    #[arg(short, long, default_value = "Determination")]
-    colorset: String,
+    #[arg(short, long)]
+    colorset: Option<String>,
+
     /// Einzublendender Text (Standard: "Hallo Welt!")
     #[arg(short, long, default_value = "Hallo Welt!")]
     string: String,
+
     /// Liste aller verfügbaren Farbsets anzeigen
-    #[arg(long)]
+    #[arg(long, conflicts_with = "colorset")]
     list: bool,
 }
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
     // Farbsets initialisieren
     let sets = colorsets();
+
     // Falls nur Liste gewünscht
     if args.list {
         println!("Verfügbare Farbsets:");
@@ -79,24 +83,31 @@ fn main() -> anyhow::Result<()> {
         }
         return Ok(());
     }
+
     // Gewähltes Farbset holen
+    let colorset = args.colorset.as_deref().unwrap_or("Determination");
     let palette = sets
-        .get(&args.colorset)
-        .ok_or_else(|| anyhow::anyhow!("Unbekanntes Farbset: {}", args.colorset))?;
+        .get(colorset)
+        .ok_or_else(|| anyhow::anyhow!("Unbekanntes Farbset: {}", colorset))?;
     let max_age = palette.len(); // Anzahl Farbstufen
+
     // Terminal in Raw-Modus versetzen und Cursor verstecken
     enable_raw_mode()?;
     let mut stdout = stdout();
     stdout.execute(Hide)?;
+
     // Aktuelle Terminalgröße
     let (mut cols, mut rows) = size()?;
     let mut grid: Vec<Vec<Option<(char, usize)>>> = vec![vec![None; cols as usize]; rows as usize];
+
     // Zeichensatz für den Regen
     let charset: Vec<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*()"
         .chars()
         .collect();
+
     // Wahrscheinlichkeit für neuen Tropfen pro Spalte und Frame
     let p_new = 0.3;
+
     // Hauptschleife
     loop {
         // Terminalgröße prüfen
@@ -106,6 +117,7 @@ fn main() -> anyhow::Result<()> {
             rows = new_rows;
             grid = vec![vec![None; cols as usize]; rows as usize];
         }
+
         // ---------- Regen aktualisieren ----------
         for x in 0..cols as usize {
             // Von unten nach oben durchgehen und Zeichen nach unten verschieben
@@ -120,9 +132,11 @@ fn main() -> anyhow::Result<()> {
                 grid[0][x] = None;
             }
         }
+
         // ---------- Bildschirm neu zeichnen ----------
         // Gesamten Bildschirm löschen und Cursor nach Hause
         stdout.execute(Clear(ClearType::All))?;
+
         // Jede Zeile des Regens ausgeben
         for y in 0..rows as usize {
             for x in 0..cols as usize {
@@ -143,6 +157,7 @@ fn main() -> anyhow::Result<()> {
             }
             println!(); // Zeilenumbruch
         }
+
         // Text einblenden (zentriert, fett, weiß)
         let text = &args.string;
         let text_len = text.len();
@@ -153,9 +168,11 @@ fn main() -> anyhow::Result<()> {
             print!("\x1b[{};{}H", text_row + 1, text_col + 1);
             print!("\x1b[1;38;2;255;255;255m{}\x1b[0m", text);
         }
+
         // Cursor wieder an den Anfang (damit er nicht blinkt)
         print!("\x1b[H");
         stdout.flush()?;
+
         // Auf Tastendruck prüfen
         if poll(Duration::from_millis(50))? {
             match read()? {
@@ -174,8 +191,10 @@ fn main() -> anyhow::Result<()> {
         } else {
             // Keine Taste -> weiter
         }
+
         sleep(Duration::from_millis(50));
     }
+
     // Terminal wiederherstellen
     disable_raw_mode()?;
     stdout.execute(Show)?;

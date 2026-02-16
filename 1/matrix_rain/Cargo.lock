@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "nixrust"
+name = "matrix_rain"
 version = "0.1.0"

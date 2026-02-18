@@ -5,8 +5,11 @@ pkgs.mkShell {
 
   buildInputs = [
     pkgs.rustup
+    pkgs.rustfmt
     pkgs.zed
     pkgs.codex
+    pkgs.gcc
+    pkgs.stdenv.cc
     
   ];
 

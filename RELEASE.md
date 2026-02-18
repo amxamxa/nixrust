@@ -1,6 +1,6 @@
 # Release Checklist
 
-This repo uses plain `git` (no `gh`) for releases. Adjust version numbers as needed.
+This repo uses plain `git` for releases. Adjust version numbers as needed.
 
 ## 1) Update version
 - `Cargo.toml`
@@ -8,6 +8,7 @@ This repo uses plain `git` (no `gh`) for releases. Adjust version numbers as nee
 
 ## 2) Build and verify
 ```bash
+nix-shell
 cargo fmt
 cargo clippy -- -D warnings
 cargo test
